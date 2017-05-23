@@ -1,5 +1,6 @@
 ﻿Imports Oracle.ManagedDataAccess.Client
 Imports System.IO
+Imports System.Windows.Forms
 
 Module PortData
 
@@ -14,13 +15,21 @@ Module PortData
         Dim Port As Integer = 1521
         Dim Protocol As Protocols = Protocols.TCP
         Dim Service As String = "xe"
-        Dim Username As String = "GASLICHT"
-        Dim Password As String = "bakerispro1998"
+        Dim Username As String = "hr"
+        Dim Password As String = "oracle"
+        Dim CSVPath As String = Nothing
+        Dim TableName As String = Nothing
 
         Dim i As Integer = 0
+        Dim OurPath As String = Process.GetCurrentProcess.MainModule.FileName
         For Each CommandArg As String In Environment.GetCommandLineArgs
             i += 1
             Try
+                If CommandArg = OurPath Then Continue For 'Fix to keep our CSVPath from being set to our self
+                If File.Exists(CommandArg) Then
+                    CSVPath = CommandArg
+                    Continue For
+                End If
                 Dim LowerCommandArg As String = CommandArg.ToLower
                 If LowerCommandArg.StartsWith("host:") Then
                     HostName = CommandArg.Split(":")(1)
@@ -34,12 +43,32 @@ Module PortData
                     Username = CommandArg.Split(":")(1)
                 ElseIf LowerCommandArg.StartsWith("password:") Then
                     Password = CommandArg.Split(":")(1)
+                ElseIf LowerCommandArg.StartsWith("table:") Then
+                    TableName = CommandArg.Split(":")(1)
                 End If
             Catch ex As Exception
                 Console.WriteLine("Error! Could not parse parameter " & i & " (" & CommandArg & ")")
                 Console.WriteLine(ex.Message)
             End Try
         Next
+
+        If Not File.Exists(CSVPath) Then
+            Dim CSVFinder As New OpenFileDialog With {
+                .DefaultExt = ".csv",
+                .Filter = "Comma Seperated Values|*.csv",
+                .InitialDirectory = "%userprofile%",
+                .FilterIndex = 0,
+                .Title = "Select a CSV file to open"}
+            If CSVFinder.ShowDialog = DialogResult.OK Then
+                CSVPath = CSVFinder.FileName
+            Else
+                Exit Sub
+            End If
+        End If
+
+        Console.WriteLine("The following CSV file will be used:")
+        Console.WriteLine(CSVPath)
+        Console.WriteLine()
 
         Console.WriteLine("The following database will be filled with test data:")
         Console.WriteLine("HostName: " & HostName)
@@ -48,6 +77,7 @@ Module PortData
         Console.WriteLine("Service: " & Service)
         Console.WriteLine("User: " & Username)
         Console.WriteLine("Password: " & Password)
+        Console.WriteLine("Table: " & TableName)
         Console.WriteLine()
         Console.Write("Press any key to begin...")
         Console.ReadKey()
@@ -86,7 +116,7 @@ Module PortData
             Exit Sub
         End If
 
-        Using InputReader As New StreamReader("C:\Users\Raymon\Google Drive\School\HBO-ICT\1\Periode 4\Project\aanmeldingen.csv")
+        Using InputReader As New StreamReader(CSVPath)
             InputReader.ReadLine() 'Skip first line containing headers
             Dim RowNumber As Integer = 0
             While Not InputReader.EndOfStream
@@ -98,10 +128,10 @@ Module PortData
                         Continue For
                     End If
                     InsertQuery &= "'" & LineSplit(i) & "'"
-                        If i < LineSplit.Count - 1 Then InsertQuery &= ","
-                    Next
-                    InsertQuery &= ")"
-                    Console.WriteLine(InsertQuery)
+                    If i < LineSplit.Count - 1 Then InsertQuery &= ","
+                Next
+                InsertQuery &= ")"
+                Console.WriteLine(InsertQuery)
                 Try
                     Dim InsertCommand As New OracleCommand(InsertQuery, Database)
                     InsertCommand.ExecuteNonQuery()
