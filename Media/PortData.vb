@@ -1,6 +1,7 @@
 ﻿Imports Oracle.ManagedDataAccess.Client
 Imports System.IO
 Imports System.Windows.Forms
+Imports System.Reflection
 
 Module PortData
 
@@ -8,6 +9,39 @@ Module PortData
         TCP
         UDP
     End Enum
+
+    Enum MediaTypes
+        <SecondaryName("newspaper")> KRANT
+        <SecondaryName("tv")> TELEVISIE
+        <SecondaryName("weekly magazine")> MAGAZINE
+        <SecondaryName("internet")> INTERNET
+        <SecondaryName("radio")> RADIO
+    End Enum
+
+    Enum Days
+        <SecondaryName("monday")> MAANDAG
+        <SecondaryName("tuesday")> DINSDAG
+        <SecondaryName("wednesday")> WOENSDAG
+        <SecondaryName("thursday")> DONDERDAG
+        <SecondaryName("friday")> VRIJDAG
+        <SecondaryName("saturday")> ZATERDAG
+        <SecondaryName("sunday")> ZONDAG
+    End Enum
+
+    Function GetEnumMemberBySecondaryName(Of TEnum)(SecondaryName As String) As TEnum
+        Dim EnumType As Type = GetType(TEnum)
+        For Each Member As MemberInfo In EnumType.GetMembers
+            For Each Attribute As CustomAttributeData In Member.CustomAttributes
+                If Attribute.AttributeType Is GetType(SecondaryNameAttribute) Then
+                    Dim SecondaryNameValue As String = DirectCast(Attribute.ConstructorArguments.First.Value, String)
+                    If SecondaryNameValue.ToLower = SecondaryName.ToLower Then
+                        Return System.Enum.Parse(EnumType, Member.Name)
+                    End If
+                End If
+            Next
+        Next
+        Return Nothing
+    End Function
 
     Sub Main()
 
@@ -21,7 +55,7 @@ Module PortData
         Dim TableName As String = Nothing
         Dim SkipFirstLine As Boolean = True
         Dim GenerateID As Boolean = True
-        Dim PrintStatements As Boolean = False
+        Dim PrintStatements As Boolean = True
 
         Dim i As Integer = 0
         Dim OurPath As String = Process.GetCurrentProcess.MainModule.FileName
@@ -30,6 +64,7 @@ Module PortData
             Try
                 If CommandArg = OurPath Then Continue For 'Fix to keep our CSVPath from being set to our self
                 If File.Exists(CommandArg) Then
+                    Console.WriteLine("Setting CSV Path to: " & CommandArg)
                     CSVPath = CommandArg
                     Continue For
                 End If
@@ -129,18 +164,42 @@ Module PortData
             If SkipFirstLine Then InputReader.ReadLine() 'Skip first line containing headers
             Dim RowNumber As Integer = 0
             While Not InputReader.EndOfStream
+
+                Dim LineSplit As String() = InputReader.ReadLine.Split(";")
+
+                Dim MediaDateObj As Date
+                If Not LineSplit(1).StartsWith("#") Then
+                    Dim MediaDate As String = LineSplit(0) 'Datum (d-m-j)
+                    Dim MediaDateSplit() As String = MediaDate.Split("-")
+                    Dim MediaDateDay As Integer = CInt(MediaDateSplit(0))
+                    Dim MediaDateMonth As Integer = CInt(MediaDateSplit(1))
+                    Dim MediaDateYear As Integer = CInt(MediaDateSplit(2))
+                    MediaDateObj = New Date(MediaDateYear, MediaDateMonth, MediaDateDay)
+                End If
+
+                Dim Week As String = LineSplit(1) 'Weeknummer
+
+                Dim Kind As String = LineSplit(2) 'Type
+                Dim Type As MediaTypes = GetEnumMemberBySecondaryName(Of MediaTypes)(Kind)
+
+                Dim Extra As String = LineSplit(3) 'Tijd
+
+                Dim PN As String = LineSplit(4) 'Beoordeling
+
+                Dim Timing As String = LineSplit(5) 'Dag
+                Dim DayName As Days = GetEnumMemberBySecondaryName(Of Days)(Timing)
+
                 Dim InsertQuery As String = "INSERT INTO " & TableName & " VALUES ("
                 If GenerateID Then InsertQuery &= RowNumber & ","
-                Dim LineSplit As String() = InputReader.ReadLine.Split(";")
-                For i = 0 To LineSplit.Count - 1
-                    If i = 0 Then
-                        InsertQuery &= OracleDateTimeString(CSVDateTimeToLocatDateTime(LineSplit(i))) & ","
-                        Continue For
-                    End If
-                    InsertQuery &= "'" & LineSplit(i) & "'"
-                    If i < LineSplit.Count - 1 Then InsertQuery &= ","
-                Next
-                InsertQuery &= ")"
+
+                If Not MediaDateObj = Nothing Then
+                    InsertQuery &= OracleDateTimeString(MediaDateObj)
+                Else
+                    InsertQuery &= "NULL"
+                End If
+
+                InsertQuery &= "," & Week & ",'" & DayName.ToString & "','" & Extra & "','" & Type.ToString & "','" & PN & "')"
+
                 If PrintStatements Then Console.WriteLine(InsertQuery)
                 Try
                     Dim InsertCommand As New OracleCommand(InsertQuery, Database)
@@ -152,7 +211,9 @@ Module PortData
                     Console.WriteLine("Failed! (Internal error)")
                     Console.WriteLine(ex.Message)
                 End Try
+
                 RowNumber += 1
+
             End While
         End Using
 
