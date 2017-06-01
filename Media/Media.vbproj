@@ -6,7 +6,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{F0982514-34FF-4E68-A8C7-D5A7D1C14ECC}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <StartupObject>Media.PortData</StartupObject>
+    <StartupObject>Media.PortMediaData</StartupObject>
     <RootNamespace>Media</RootNamespace>
     <AssemblyName>Media</AssemblyName>
     <FileAlignment>512</FileAlignment>
@@ -72,7 +72,7 @@
     <Import Include="System.Threading.Tasks" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="PortData.vb" />
+    <Compile Include="PortMediaData.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
     <Compile Include="My Project\Application.Designer.vb">
       <AutoGen>True</AutoGen>

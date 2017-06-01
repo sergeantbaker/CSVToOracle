@@ -1,7 +1,7 @@
-﻿Imports Oracle.ManagedDataAccess.Client
-Imports System.IO
-Imports System.Windows.Forms
+﻿Imports System.IO
 Imports System.Reflection
+Imports System.Windows.Forms
+Imports Oracle.ManagedDataAccess.Client
 
 Module PortData
 
@@ -10,38 +10,68 @@ Module PortData
         UDP
     End Enum
 
-    Enum MediaTypes
-        <SecondaryName("newspaper")> KRANT
-        <SecondaryName("tv")> TELEVISIE
-        <SecondaryName("weekly magazine")> MAGAZINE
-        <SecondaryName("internet")> INTERNET
-        <SecondaryName("radio")> RADIO
-    End Enum
+    Function ParseOracleDateTime(Input As String) As DateTime
 
-    Enum Days
-        <SecondaryName("monday")> MAANDAG
-        <SecondaryName("tuesday")> DINSDAG
-        <SecondaryName("wednesday")> WOENSDAG
-        <SecondaryName("thursday")> DONDERDAG
-        <SecondaryName("friday")> VRIJDAG
-        <SecondaryName("saturday")> ZATERDAG
-        <SecondaryName("sunday")> ZONDAG
-    End Enum
+        Dim SpaceSplit() As String = Input.Split(" ")
+        Dim ContainsTime As Boolean = False
+        Dim ContainsDate As Boolean = False
 
-    Function GetEnumMemberBySecondaryName(Of TEnum)(SecondaryName As String) As TEnum
-        Dim EnumType As Type = GetType(TEnum)
-        For Each Member As MemberInfo In EnumType.GetMembers
-            For Each Attribute As CustomAttributeData In Member.CustomAttributes
-                If Attribute.AttributeType Is GetType(SecondaryNameAttribute) Then
-                    Dim SecondaryNameValue As String = DirectCast(Attribute.ConstructorArguments.First.Value, String)
-                    If SecondaryNameValue.ToLower = SecondaryName.ToLower Then
-                        Return System.Enum.Parse(EnumType, Member.Name)
-                    End If
-                End If
-            Next
+        Dim Year As Integer
+        Dim Day As Integer
+        Dim Month As Integer
+
+        Dim Hour As Integer
+        Dim Minute As Integer
+        Dim Second As Integer
+
+        For Each Split As String In SpaceSplit
+
+            If Split.Contains("-") Then 'Date
+                ContainsDate = True
+
+                Dim DateSplit() As String = Split.Split("-")
+                Day = DateSplit(2)
+                Month = DateSplit(1)
+                Year = DateSplit(0)
+
+            ElseIf Split.Contains(":") Then 'Time
+                ContainsTime = True
+
+                Dim TimeSplit() As String = Split.Split(".").First.Split(":")
+                Hour = TimeSplit(0)
+                Minute = TimeSplit(1)
+                Second = TimeSplit(2)
+
+            End If
+
         Next
+
+        If ContainsDate And ContainsTime Then
+            Return New DateTime(Year, Month, Day, Hour, Minute, Second)
+        ElseIf ContainsDate Then
+            Return New Date(Year, Month, Day)
+        ElseIf ContainsTime Then
+            Return New DateTime(0, 0, 0, Hour, Minute, Second)
+        End If
+
         Return Nothing
+
     End Function
+
+    'Function GetEnumMemberBySecondaryName(Of TEnum)(SecondaryName As String) As TEnum
+    '    Dim EnumType As Type = GetType(TEnum)
+    '    For Each Member As MemberInfo In EnumType.GetMembers
+    '        For Each Attribute As CustomAttributeData In Member.CustomAttributes
+    '            If Attribute.AttributeType Is GetType(SecondaryNameAttribute) Then
+    '                Dim SecondaryNameValue As String = DirectCast(Attribute.ConstructorArguments.First.Value, String)
+    '                If SecondaryNameValue.ToLower = SecondaryName.ToLower Then
+    '                    Return System.Enum.Parse(EnumType, Member.Name)
+    '                End If
+    '            End If
+    '        Next
+    '    Next
+    '    Return Nothing
+    'End Function
 
     Sub Main()
 
@@ -54,7 +84,7 @@ Module PortData
         Dim CSVPath As String = Nothing
         Dim TableName As String = Nothing
         Dim SkipFirstLine As Boolean = True
-        Dim GenerateID As Boolean = True
+        Dim GenerateID As Boolean = False
         Dim PrintStatements As Boolean = True
 
         Dim i As Integer = 0
@@ -167,38 +197,23 @@ Module PortData
 
                 Dim LineSplit As String() = InputReader.ReadLine.Split(";")
 
-                Dim MediaDateObj As Date
-                If Not LineSplit(1).StartsWith("#") Then
-                    Dim MediaDate As String = LineSplit(0) 'Datum (d-m-j)
-                    Dim MediaDateSplit() As String = MediaDate.Split("-")
-                    Dim MediaDateDay As Integer = CInt(MediaDateSplit(0))
-                    Dim MediaDateMonth As Integer = CInt(MediaDateSplit(1))
-                    Dim MediaDateYear As Integer = CInt(MediaDateSplit(2))
-                    MediaDateObj = New Date(MediaDateYear, MediaDateMonth, MediaDateDay)
-                End If
-
-                Dim Week As String = LineSplit(1) 'Weeknummer
-
-                Dim Kind As String = LineSplit(2) 'Type
-                Dim Type As MediaTypes = GetEnumMemberBySecondaryName(Of MediaTypes)(Kind)
-
-                Dim Extra As String = LineSplit(3) 'Tijd
-
-                Dim PN As String = LineSplit(4) 'Beoordeling
-
-                Dim Timing As String = LineSplit(5) 'Dag
-                Dim DayName As Days = GetEnumMemberBySecondaryName(Of Days)(Timing)
+                Dim ID As String = LineSplit(0)
+                Dim CreationDate As DateTime = ParseOracleDateTime(LineSplit(1))
+                Dim ModificationDate As DateTime = ParseOracleDateTime(LineSplit(2))
+                Dim ProviderID As Integer = CInt(LineSplit(3))
+                Dim Status As String = LineSplit(4)
+                Dim ContractDate As DateTime = ParseOracleDateTime(LineSplit(5))
+                Dim Provider As String = LineSplit(6)
+                Dim ProcessStartDate As DateTime = ParseOracleDateTime(LineSplit(7))
+                Dim ProcessEndDate As DateTime = ParseOracleDateTime(LineSplit(8))
+                Dim Language As String = LineSplit(9)
 
                 Dim InsertQuery As String = "INSERT INTO " & TableName & " VALUES ("
                 If GenerateID Then InsertQuery &= RowNumber & ","
 
-                If Not MediaDateObj = Nothing Then
-                    InsertQuery &= OracleDateTimeString(MediaDateObj)
-                Else
-                    InsertQuery &= "NULL"
-                End If
+                MsgBox(OracleDateTimeString(CreationDate))
 
-                InsertQuery &= "," & Week & ",'" & DayName.ToString & "','" & Extra & "','" & Type.ToString & "','" & PN & "')"
+                InsertQuery &= "'" & ID & "'," & OracleDateTimeString(CreationDate) & "," & OracleDateTimeString(ContractDate) & "," & OracleDateTimeString(ProcessStartDate) & "," & OracleDateTimeString(ProcessEndDate) & "," & OracleDateTimeString(ModificationDate) & "," & ProviderID & ",'" & Provider & "','" & Status & "','" & Language & "')"
 
                 If PrintStatements Then Console.WriteLine(InsertQuery)
                 Try
@@ -237,21 +252,8 @@ Module PortData
     Const OracleDateTimeFormat As String = "yyyy/mm/dd hh24:mi"
 
     Function OracleDateTimeString(Input As DateTime) As String
+        If Input = Nothing Then Return "NULL"
         Return "TO_DATE('" & Input.ToString(OracleDateTimeFormatEquivalent) & "', '" & OracleDateTimeFormat & "')"
-    End Function
-
-    Function CSVDateTimeToLocatDateTime(CSVDateTime As String) As DateTime
-        Dim SignificantPart As String = CSVDateTime.Split(".")(0)
-        Dim SignificantSplit() As String = SignificantPart.Split(" ")
-        Dim DateSplit() As String = SignificantSplit(0).Split("-")
-        Dim TimeSplit() As String = SignificantSplit(1).Split(":")
-        Dim Year As Integer = CInt(DateSplit(0))
-        Dim Month As Integer = CInt(DateSplit(1))
-        Dim Day As Integer = CInt(DateSplit(2))
-        Dim Hour As Integer = CInt(TimeSplit(0))
-        Dim Minute As Integer = CInt(TimeSplit(1))
-        Dim Second As Integer = CInt(TimeSplit(2))
-        Return New DateTime(Year, Month, Day, Hour, Minute, Second)
     End Function
 
 End Module

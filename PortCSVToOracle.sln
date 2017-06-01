@@ -9,6 +9,8 @@ Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Media", "Media\Media.vbproj
 EndProject
 Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Contracts", "Contracts\Contracts.vbproj", "{9DA1E223-0C2A-442E-9EAE-9669BA1648E4}"
 EndProject
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "NieuweMedia", "NieuweMedia\NieuweMedia.vbproj", "{C44C9D36-325A-4521-973C-C0A162C13CC9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{9DA1E223-0C2A-442E-9EAE-9669BA1648E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9DA1E223-0C2A-442E-9EAE-9669BA1648E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9DA1E223-0C2A-442E-9EAE-9669BA1648E4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C44C9D36-325A-4521-973C-C0A162C13CC9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C44C9D36-325A-4521-973C-C0A162C13CC9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C44C9D36-325A-4521-973C-C0A162C13CC9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C44C9D36-325A-4521-973C-C0A162C13CC9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

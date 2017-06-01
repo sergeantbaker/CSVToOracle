@@ -1,77 +1,13 @@
-﻿Imports System.IO
-Imports System.Reflection
+﻿Imports Oracle.ManagedDataAccess.Client
+Imports System.IO
 Imports System.Windows.Forms
-Imports Oracle.ManagedDataAccess.Client
 
-Module PortData
+Module PortApplyData
 
     Enum Protocols
         TCP
         UDP
     End Enum
-
-    Function ParseOracleDateTime(Input As String) As DateTime
-
-        Dim SpaceSplit() As String = Input.Split(" ")
-        Dim ContainsTime As Boolean = False
-        Dim ContainsDate As Boolean = False
-
-        Dim Year As Integer
-        Dim Day As Integer
-        Dim Month As Integer
-
-        Dim Hour As Integer
-        Dim Minute As Integer
-        Dim Second As Integer
-
-        For Each Split As String In SpaceSplit
-
-            If Split.Contains("-") Then 'Date
-                ContainsDate = True
-
-                Dim DateSplit() As String = Split.Split("-")
-                Day = DateSplit(2)
-                Month = DateSplit(1)
-                Year = DateSplit(0)
-
-            ElseIf Split.Contains(":") Then 'Time
-                ContainsTime = True
-
-                Dim TimeSplit() As String = Split.Split(".").First.Split(":")
-                Hour = TimeSplit(0)
-                Minute = TimeSplit(1)
-                Second = TimeSplit(2)
-
-            End If
-
-        Next
-
-        If ContainsDate And ContainsTime Then
-            Return New DateTime(Year, Month, Day, Hour, Minute, Second)
-        ElseIf ContainsDate Then
-            Return New Date(Year, Month, Day)
-        ElseIf ContainsTime Then
-            Return New DateTime(0, 0, 0, Hour, Minute, Second)
-        End If
-
-        Return Nothing
-
-    End Function
-
-    'Function GetEnumMemberBySecondaryName(Of TEnum)(SecondaryName As String) As TEnum
-    '    Dim EnumType As Type = GetType(TEnum)
-    '    For Each Member As MemberInfo In EnumType.GetMembers
-    '        For Each Attribute As CustomAttributeData In Member.CustomAttributes
-    '            If Attribute.AttributeType Is GetType(SecondaryNameAttribute) Then
-    '                Dim SecondaryNameValue As String = DirectCast(Attribute.ConstructorArguments.First.Value, String)
-    '                If SecondaryNameValue.ToLower = SecondaryName.ToLower Then
-    '                    Return System.Enum.Parse(EnumType, Member.Name)
-    '                End If
-    '            End If
-    '        Next
-    '    Next
-    '    Return Nothing
-    'End Function
 
     Sub Main()
 
@@ -84,8 +20,8 @@ Module PortData
         Dim CSVPath As String = Nothing
         Dim TableName As String = Nothing
         Dim SkipFirstLine As Boolean = True
-        Dim GenerateID As Boolean = False
-        Dim PrintStatements As Boolean = True
+        Dim GenerateID As Boolean = True
+        Dim PrintStatements As Boolean = False
 
         Dim i As Integer = 0
         Dim OurPath As String = Process.GetCurrentProcess.MainModule.FileName
@@ -94,7 +30,6 @@ Module PortData
             Try
                 If CommandArg = OurPath Then Continue For 'Fix to keep our CSVPath from being set to our self
                 If File.Exists(CommandArg) Then
-                    Console.WriteLine("Setting CSV Path to: " & CommandArg)
                     CSVPath = CommandArg
                     Continue For
                 End If
@@ -194,25 +129,18 @@ Module PortData
             If SkipFirstLine Then InputReader.ReadLine() 'Skip first line containing headers
             Dim RowNumber As Integer = 0
             While Not InputReader.EndOfStream
-
-                Dim LineSplit As String() = InputReader.ReadLine.Split(";")
-
-                Dim ID As String = LineSplit(0)
-                Dim CreationDate As DateTime = ParseOracleDateTime(LineSplit(1))
-                Dim ModificationDate As DateTime = ParseOracleDateTime(LineSplit(2))
-                Dim ProviderID As Integer = CInt(LineSplit(3))
-                Dim Status As String = LineSplit(4)
-                Dim ContractDate As DateTime = ParseOracleDateTime(LineSplit(5))
-                Dim Provider As String = LineSplit(6)
-                Dim ProcessStartDate As DateTime = ParseOracleDateTime(LineSplit(7))
-                Dim ProcessEndDate As DateTime = ParseOracleDateTime(LineSplit(8))
-                Dim Language As String = LineSplit(9)
-
                 Dim InsertQuery As String = "INSERT INTO " & TableName & " VALUES ("
                 If GenerateID Then InsertQuery &= RowNumber & ","
-
-                InsertQuery &= "'" & ID & "'," & OracleDateTimeString(CreationDate) & "," & OracleDateTimeString(ContractDate) & "," & OracleDateTimeString(ProcessStartDate) & "," & OracleDateTimeString(ProcessEndDate) & "," & OracleDateTimeString(ModificationDate) & "," & ProviderID & ",'" & Provider & "','" & Status & "','" & Language & "')"
-
+                Dim LineSplit As String() = InputReader.ReadLine.Split(";")
+                For i = 0 To LineSplit.Count - 1
+                    If i = 0 Then
+                        InsertQuery &= OracleDateTimeString(CSVDateTimeToLocatDateTime(LineSplit(i))) & ","
+                        Continue For
+                    End If
+                    InsertQuery &= "'" & LineSplit(i) & "'"
+                    If i < LineSplit.Count - 1 Then InsertQuery &= ","
+                Next
+                InsertQuery &= ")"
                 If PrintStatements Then Console.WriteLine(InsertQuery)
                 Try
                     Dim InsertCommand As New OracleCommand(InsertQuery, Database)
@@ -224,9 +152,7 @@ Module PortData
                     Console.WriteLine("Failed! (Internal error)")
                     Console.WriteLine(ex.Message)
                 End Try
-
                 RowNumber += 1
-
             End While
         End Using
 
@@ -250,8 +176,21 @@ Module PortData
     Const OracleDateTimeFormat As String = "yyyy/mm/dd hh24:mi"
 
     Function OracleDateTimeString(Input As DateTime) As String
-        If Input = Nothing Then Return "NULL"
         Return "TO_DATE('" & Input.ToString(OracleDateTimeFormatEquivalent) & "', '" & OracleDateTimeFormat & "')"
+    End Function
+
+    Function CSVDateTimeToLocatDateTime(CSVDateTime As String) As DateTime
+        Dim SignificantPart As String = CSVDateTime.Split(".")(0)
+        Dim SignificantSplit() As String = SignificantPart.Split(" ")
+        Dim DateSplit() As String = SignificantSplit(0).Split("-")
+        Dim TimeSplit() As String = SignificantSplit(1).Split(":")
+        Dim Year As Integer = CInt(DateSplit(0))
+        Dim Month As Integer = CInt(DateSplit(1))
+        Dim Day As Integer = CInt(DateSplit(2))
+        Dim Hour As Integer = CInt(TimeSplit(0))
+        Dim Minute As Integer = CInt(TimeSplit(1))
+        Dim Second As Integer = CInt(TimeSplit(2))
+        Return New DateTime(Year, Month, Day, Hour, Minute, Second)
     End Function
 
 End Module
