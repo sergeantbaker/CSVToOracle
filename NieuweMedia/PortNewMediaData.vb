@@ -213,7 +213,7 @@ Module PortData
                 Dim Categorie As String = LineSplit(2)
                 Dim Locatie As String = LineSplit(3)
                 Dim Titel As String = LineSplit(4)
-                Dim Dag As String = LineSplit(5).ToUpper
+                Dim Dag As String = LineSplit(5).Trim.ToUpper
                 Dim DagTekst As String = If(Not Dag = Nothing, "'" & Dag.ToString & "'", "NULL")
                 Dim Opmerkingen As String = LineSplit(6)
                 Dim PN As String = LineSplit(7).ToUpper
@@ -259,6 +259,7 @@ Module PortData
     Const OracleDateTimeFormat As String = "yyyy-mm-dd"
 
     Function OracleDateTimeString(Input As DateTime) As String
+        If Input = Nothing Then Return "NULL"
         Return "TO_DATE('" & Input.ToString(OracleDateTimeFormatEquivalent) & "', '" & OracleDateTimeFormat & "')"
     End Function
 
